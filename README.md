@@ -11,8 +11,6 @@
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Move](https://img.shields.io/badge/Move-000000?style=for-the-badge)](https://move-language.github.io/move/)
 
-[Live Demo](#) • [Documentation](#) • [Video Demo](#)
-
 </div>
 
 ---
@@ -33,8 +31,6 @@
 ---
 
 ## ✨ Key Features
-
-### ✅ Fully Implemented & Working
 
 - **Smart Contract** (`move/sources/duel_arena.move`)
   - ✅ Create, join, and resolve duels
