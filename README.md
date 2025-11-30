@@ -11,6 +11,8 @@
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Move](https://img.shields.io/badge/Move-000000?style=for-the-badge)](https://move-language.github.io/move/)
 
+[Live Demo](https://candle-clash-psi.vercel.app/) • [Presentation](https://www.canva.com/design/DAG6Ju1zZ6U/tIVvxd9op_kteu4ptCvz-g/view?utm_content=DAG6Ju1zZ6U&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=haa8eeee189) • [Video Demo](https://youtu.be/s_80cWVkJoU)
+
 </div>
 
 ---
@@ -547,6 +549,9 @@ MIT License - Built for Aptos Hackathon 2024
 
 ## 📞 Contact
 
+- **Live Demo**: [https://candle-clash-psi.vercel.app/](https://candle-clash-psi.vercel.app/)
+- **Presentation**: [View Slides](https://www.canva.com/design/DAG6Ju1zZ6U/tIVvxd9op_kteu4ptCvz-g/view?utm_content=DAG6Ju1zZ6U&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=haa8eeee189)
+- **Video Demo**: [Watch on YouTube](https://youtu.be/s_80cWVkJoU)
 - **GitHub**: [@xaviersharwin10](https://github.com/xaviersharwin10)
 - **Repository**: [candle_clash](https://github.com/xaviersharwin10/candle_clash)
 

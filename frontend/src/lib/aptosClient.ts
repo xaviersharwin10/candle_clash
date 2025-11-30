@@ -181,7 +181,7 @@ export async function getDuel(duelId: number, skipCache: boolean = false): Promi
         // Fallback to direct REST API call to fetch from DuelStore table
         try {
           const fullnodeUrl = network === Network.MAINNET 
-            ? 'https://fullnode.mainnet.aptoslabs.com'
+            ? 'https://fullnode.mainnet.aptoslabs.com'  
             : 'https://fullnode.devnet.aptoslabs.com';
           const resourceUrl = `${fullnodeUrl}/v1/accounts/${MODULE_ADDRESS}/resource/${MODULE_ADDRESS}::${MODULE_NAME}::DuelStore`;
           const storeResponse = await fetch(resourceUrl);
