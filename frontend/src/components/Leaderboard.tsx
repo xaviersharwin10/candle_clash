@@ -224,12 +224,12 @@ export default function Leaderboard({ userAddress }: LeaderboardProps) {
                                 {claimDetails.photonWalletAddress.slice(0, 12)}...{claimDetails.photonWalletAddress.slice(-10)}
                               </code>
                               <a
-                                href={`https://explorer.aptoslabs.com/account/${claimDetails.photonWalletAddress}?network=${import.meta.env.VITE_APTOS_NETWORK || 'mainnet'}`}
+                                href={`https://explorer.aptoslabs.com/account/${claimDetails.photonWalletAddress}?network=devnet`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-3 py-2 bg-cyberpunk-primary/20 hover:bg-cyberpunk-primary/30 text-cyberpunk-primary rounded-lg text-xs transition-all duration-200 inline-flex items-center gap-1.5 hover:scale-105 font-semibold"
                               >
-                                <span>View on Explorer</span>
+                                <span>View on Explorer (Devnet)</span>
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>

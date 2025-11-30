@@ -2,7 +2,7 @@ import 'dotenv/config'; // Load environment variables from .env file
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
-import { reportPnlForDuel } from "./referee.js";
+import { reportPnlForDuel, recordTradeForDuel, getTradesForDuel } from "./referee.js";
 import photonRoutes from "./photonRoutes.js";
 import leaderboardRoutes from "./leaderboardRoutes.js";
 
@@ -34,6 +34,35 @@ app.post("/duels/:id/report-pnl", async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error("Error reporting PnL", e);
+    res.status(500).json({ ok: false, error: "Internal error" });
+  }
+});
+
+app.post("/duels/:id/trades", async (req, res) => {
+  const duelId = Number(req.params.id);
+  const trade = req.body;
+
+  if (!trade || !trade.playerAddress || !trade.tokenIn || !trade.tokenOut) {
+    return res.status(400).json({ ok: false, error: "Invalid payload" });
+  }
+
+  try {
+    recordTradeForDuel(duelId, trade);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("Error recording trade", e);
+    res.status(500).json({ ok: false, error: "Internal error" });
+  }
+});
+
+app.get("/duels/:id/trades", async (req, res) => {
+  const duelId = Number(req.params.id);
+  
+  try {
+    const trades = getTradesForDuel(duelId);
+    res.json({ ok: true, data: trades });
+  } catch (e) {
+    console.error("Error fetching trades", e);
     res.status(500).json({ ok: false, error: "Internal error" });
   }
 });

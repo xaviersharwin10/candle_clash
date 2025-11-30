@@ -367,6 +367,45 @@ export async function getBalance(address: string): Promise<number> {
 }
 
 /**
+ * Get account coin balance (for FA or other coins like zUSDC)
+ * @param address Account address
+ * @param coinType Full coin type (e.g., 0xf22...::asset::USDC)
+ */
+export async function getAccountCoinAmount(address: string, coinType: string): Promise<number> {
+  try {
+    // Clean and validate address
+    let cleanAddress = address.trim();
+    if (!cleanAddress.startsWith('0x')) {
+      cleanAddress = '0x' + cleanAddress;
+    }
+    
+    console.log('[getAccountCoinAmount] Fetching balance for:', cleanAddress, coinType);
+    
+    try {
+      const [balanceStr] = await aptosClient.view<[string]>({
+        payload: {
+          function: '0x1::coin::balance',
+          typeArguments: [coinType],
+          functionArguments: [cleanAddress],
+        },
+      });
+      
+      const balance = parseInt(balanceStr, 10);
+      if (!isNaN(balance)) {
+        return balance; // Return raw balance (caller handles decimals)
+      }
+      return 0;
+    } catch (error) {
+      console.warn('[getAccountCoinAmount] Error fetching coin balance:', error);
+      return 0;
+    }
+  } catch (error) {
+    console.error('[getAccountCoinAmount] Fatal error:', error);
+    return 0;
+  }
+}
+
+/**
  * Duel status types
  */
 export type DuelStatus = 'open' | 'active' | 'resolved';

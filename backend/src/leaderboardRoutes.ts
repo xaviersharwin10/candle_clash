@@ -9,6 +9,8 @@ import {
   getUserRank,
   claimLeaderboardReward,
   isUserInTop10,
+  trackDuelCreated,
+  trackDuelJoined,
 } from './leaderboardService.js';
 
 const router = express.Router();

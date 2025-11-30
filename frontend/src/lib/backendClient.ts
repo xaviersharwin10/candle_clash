@@ -69,6 +69,64 @@ export async function reportSwapExecuted(
 }
 
 /**
+ * Record a trade for a duel
+ */
+export async function recordDuelTrade(
+  duelId: number,
+  trade: {
+    playerAddress: string;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: number;
+    amountOut: number;
+    timestamp: number;
+    txHash?: string;
+  }
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/duels/${duelId}/trades`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(trade),
+    });
+
+    const data = await response.json();
+    return data.ok === true;
+  } catch (error) {
+    console.error('Error recording trade:', error);
+    return false;
+  }
+}
+
+/**
+ * Get trades for a duel
+ */
+export async function getDuelTrades(duelId: number): Promise<{
+  playerAddress: string;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: number;
+  amountOut: number;
+  timestamp: number;
+  txHash?: string;
+}[]> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/duels/${duelId}/trades`);
+    const data = await response.json();
+    
+    if (data.ok && Array.isArray(data.data)) {
+      return data.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching duel trades:', error);
+    return [];
+  }
+}
+
+/**
  * Report duel created for leaderboard tracking
  */
 export async function reportDuelCreated(

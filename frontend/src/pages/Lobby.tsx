@@ -4,6 +4,7 @@ import { Account } from '@aptos-labs/ts-sdk';
 import { listAllDuels, joinDuel, getDuel } from '../lib/aptosClient';
 import type { DuelInfo } from '../lib/aptosClient';
 import { photonService, PhotonEvents } from '../lib/photonService';
+import { reportDuelJoined } from '../lib/backendClient';
 import CreateDuelModal from '../components/CreateDuelModal';
 
 interface LobbyProps {

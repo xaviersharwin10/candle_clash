@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Account } from '@aptos-labs/ts-sdk';
-import AuthButton from './components/AuthButton';
 import PetraWalletButton from './components/PetraWalletButton';
 import DuelView from './components/DuelView';
 import Lobby from './pages/Lobby';
@@ -9,7 +8,7 @@ import Leaderboard from './components/Leaderboard';
 import TopUpModal from './components/TopUpModal';
 import CreateDuelModal from './components/CreateDuelModal';
 import { photonService } from './lib/photonService';
-import { getPetraAccount, disconnectPetra } from './lib/petraWallet';
+import { getPetraAccount, disconnectPetra, switchPetraAccount, isPetraInstalled } from './lib/petraWallet';
 import './App.css';
 
 function App() {
@@ -85,12 +84,6 @@ function App() {
     loadSession();
   }, []);
 
-  const handleAuthSuccess = (acc: Account, addr: string) => {
-    setAccount(acc);
-    setAddress(addr);
-    setIsPetraWallet(false);
-  };
-
   const handlePetraConnect = (addr: string) => {
     setAddress(addr);
     setAccount(null); // No Account object for Petra wallet
@@ -107,6 +100,38 @@ function App() {
     setAccount(null);
     setIsPetraWallet(false);
     sessionStorage.removeItem('petra_address');
+  };
+
+  const handleSwitchWallet = async () => {
+    // If using Petra wallet, switch account
+    if (isPetraWallet && isPetraInstalled()) {
+      try {
+        // Disconnect first
+        await disconnectPetra();
+        sessionStorage.removeItem('petra_address');
+        
+        // Small delay before reconnecting
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Reconnect - this will show account selection
+        const result = await switchPetraAccount();
+        setAddress(result.address);
+        setIsPetraWallet(true);
+        setAccount(null);
+        sessionStorage.setItem('petra_address', result.address);
+      } catch (error: any) {
+        console.error('Error switching account:', error);
+        // If user cancels, just disconnect
+        if (error.message?.includes('rejected')) {
+          handleDisconnect();
+        } else {
+          alert(error.message || 'Failed to switch account');
+        }
+      }
+    } else {
+      // For non-Petra wallets, just disconnect
+      handleDisconnect();
+    }
   };
 
   const handleDisconnect = async () => {
@@ -134,10 +159,6 @@ function App() {
   };
 
 
-  const handleAuthError = (error: Error) => {
-    console.error('Authentication error:', error);
-    alert('Authentication failed. Please try again.');
-  };
 
 
 
@@ -199,13 +220,24 @@ function App() {
                     {isPetraWallet ? '🔷 Petra' : '🔐 Google'}
                   </span>
                 </div>
-                <button
-                  onClick={handleDisconnect}
-                  className="text-sm text-white/60 hover:text-white transition-colors px-3 py-1.5 hover:bg-white/5 rounded-lg"
-                  title="Switch Wallet"
-                >
-                  🔄 Switch
-                </button>
+                <div className="flex items-center gap-2">
+                  {isPetraWallet && isPetraInstalled() ? (
+                    <button
+                      onClick={handleSwitchWallet}
+                      className="text-sm text-white/60 hover:text-white transition-colors px-3 py-1.5 hover:bg-white/5 rounded-lg"
+                      title="Switch Account"
+                    >
+                      🔄 Switch Account
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={handleDisconnect}
+                    className="text-sm text-white/60 hover:text-white transition-colors px-3 py-1.5 hover:bg-white/5 rounded-lg"
+                    title="Disconnect Wallet"
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             </div>
           </nav>

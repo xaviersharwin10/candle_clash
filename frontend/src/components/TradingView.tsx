@@ -1,28 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, CandlestickSeries } from 'lightweight-charts';
+import { createChart, LineSeries } from 'lightweight-charts';
 import { Account } from '@aptos-labs/ts-sdk';
 import { 
   decibelSwapService, 
   SUPPORTED_TOKENS, 
-  getCurrentPrice,
   type PlayerSwapState,
   type SwapToken,
   type Swap
 } from '../lib/decibelSwapService';
 import { executeLiquidswapSwap } from '../lib/liquidswapSwap';
-import { reportPnL, reportSwapExecuted } from '../lib/backendClient';
+import { reportPnL, reportSwapExecuted, recordDuelTrade, getDuelTrades } from '../lib/backendClient';
 import { photonService, PhotonEvents } from '../lib/photonService';
-import { getBalance } from '../lib/aptosClient';
+import { getBalance, getAccountCoinAmount, getDuel } from '../lib/aptosClient';
 
 // Define all types locally since lightweight-charts doesn't export them as named exports
 type Time = string | number;
-type CandlestickData = {
-  time: Time;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
 
 interface TradingViewProps {
   duelId: number;
@@ -52,7 +44,10 @@ export default function TradingView({
   const initialBalanceUSD = wagerAmount * APT_PRICE_USD;
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
+  const playerLineRef = useRef<any>(null);
+  const opponentLineRef = useRef<any>(null);
+  
+  const [pnlHistory, setPnlHistory] = useState<{time: number, player: number, opponent: number}[]>([]);
   
   // Filter to only APT and zUSDC for swaps
   const AVAILABLE_TOKENS = SUPPORTED_TOKENS.filter(t => t.symbol === 'APT' || t.symbol === 'zUSDC');
@@ -78,7 +73,7 @@ export default function TradingView({
   const [timeRemaining, setTimeRemaining] = useState(calculateTimeRemaining());
   const [isGameActive, setIsGameActive] = useState(true);
   const [hasReportedPnL, setHasReportedPnL] = useState(false);
-  const candleDataRef = useRef<CandlestickData[]>([]);
+  const [duelWinner, setDuelWinner] = useState<string | null>(null);
   
   // Track swaps made within our platform during this duel only
   const [duelStartTime] = useState(Math.floor(Date.now() / 1000)); // Duel start timestamp
@@ -86,18 +81,30 @@ export default function TradingView({
   
   // Real wallet balance
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
 
   // Fetch actual wallet balance
   useEffect(() => {
     const fetchBalance = async () => {
       if (!playerAddress) return;
       try {
+        // Fetch APT balance
         const balance = await getBalance(playerAddress);
-        console.log('[TradingView] Wallet balance fetched:', balance, 'APT');
+        console.log('[TradingView] APT balance fetched:', balance, 'APT');
         setWalletBalance(balance);
+        
+        // Fetch zUSDC balance
+        const usdcToken = SUPPORTED_TOKENS.find(t => t.symbol === 'zUSDC');
+        if (usdcToken) {
+          const usdcRaw = await getAccountCoinAmount(playerAddress, usdcToken.address);
+          const usdc = usdcRaw / Math.pow(10, usdcToken.decimals);
+          console.log('[TradingView] zUSDC balance fetched:', usdc, 'zUSDC');
+          setUsdcBalance(usdc);
+        }
       } catch (error) {
         console.error('[TradingView] Error fetching wallet balance:', error);
-        setWalletBalance(0);
+        if (walletBalance === null) setWalletBalance(0);
+        if (usdcBalance === null) setUsdcBalance(0);
       }
     };
     fetchBalance();
@@ -105,6 +112,72 @@ export default function TradingView({
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
   }, [playerAddress]);
+
+  // Sync trades from backend (poll every 3 seconds)
+  useEffect(() => {
+    const syncTrades = async () => {
+      try {
+        // console.log('[TradingView] Syncing trades from backend...');
+        const trades = await getDuelTrades(duelId);
+        
+        // Get current local swaps
+        const currentSwaps = decibelSwapService.getDuelSwaps(duelId);
+        
+        // Filter trades that are not in local service
+        // Use txHash for reliable de-duping if available, otherwise fallback to timestamp/amount
+        const missingTrades = trades.filter(t => 
+          !currentSwaps.some(s => {
+            if (t.txHash && s.txHash) {
+              return s.txHash === t.txHash;
+            }
+            return s.timestamp === t.timestamp && 
+                   s.amountIn === t.amountIn && 
+                   s.tokenIn.symbol === t.tokenIn;
+          })
+        );
+        
+        if (missingTrades.length > 0) {
+          console.log('[TradingView] Syncing', missingTrades.length, 'new trades');
+          // Sort by timestamp ascending to replay correctly
+          missingTrades.sort((a, b) => a.timestamp - b.timestamp);
+          
+          for (const trade of missingTrades) {
+            await decibelSwapService.executeSwap(
+              duelId,
+              trade.playerAddress,
+              trade.tokenIn,
+              trade.tokenOut,
+              trade.amountIn,
+              trade.txHash
+            );
+          }
+          
+          // Update platform swaps state
+          const allSwaps = decibelSwapService.getDuelSwaps(duelId);
+          const duelSwaps = allSwaps.filter(swap => swap.timestamp >= duelStartTime);
+          duelSwaps.sort((a, b) => b.timestamp - a.timestamp);
+          setPlatformSwaps(duelSwaps);
+          
+          // Update player states
+          const pState = decibelSwapService.getPlayerState(duelId, playerAddress);
+          const oState = decibelSwapService.getPlayerState(duelId, opponentAddress);
+          if (pState) setPlayerState(pState);
+          if (oState) setOpponentState(oState);
+        }
+      } catch (error) {
+        console.error('[TradingView] Error syncing trades:', error);
+      }
+    };
+    
+    // Initial sync
+    if (playerAddress) {
+      syncTrades();
+    }
+
+    // Poll for updates
+    const interval = setInterval(syncTrades, 3000);
+    return () => clearInterval(interval);
+  }, [duelId, playerAddress, opponentAddress, duelStartTime]);
 
   // Initialize players and start price updates
   useEffect(() => {
@@ -115,19 +188,22 @@ export default function TradingView({
     
     console.log('[TradingView] Initializing players', {
       walletBalance,
+      usdcBalance,
       actualBalanceUSD,
       initialBalanceUSD,
     });
     
     // Initialize both players with actual balance
     // For the player: use actual wallet balance if available
-    // For opponent: use wager-based balance
     decibelSwapService.initializePlayer(
       duelId, 
       playerAddress, 
       actualBalanceUSD,
       walletBalance !== null ? walletBalance : undefined // Pass actual APT balance
     );
+    // Note: We don't pass USDC balance to initializePlayer because it currently expects normalized USD
+    // But getTokenBalance will check real wallet balance for USDC now
+    
     decibelSwapService.initializePlayer(duelId, opponentAddress, initialBalanceUSD);
     
     // Start price updates
@@ -136,6 +212,18 @@ export default function TradingView({
       const opponent = playerStates.get(opponentAddress);
       if (player) setPlayerState(player);
       if (opponent) setOpponentState(opponent);
+      
+      // Update P&L history
+      const now = Math.floor(Date.now() / 1000);
+      setPnlHistory(prev => {
+        // Don't add duplicate timestamps
+        if (prev.length > 0 && prev[prev.length - 1].time === now) return prev;
+        return [...prev, {
+          time: now,
+          player: player?.pnlPercent || 0,
+          opponent: opponent?.pnlPercent || 0
+        }];
+      });
     });
     
     // Get initial states
@@ -145,7 +233,7 @@ export default function TradingView({
     return () => {
       decibelSwapService.stopPriceUpdates();
     };
-  }, [duelId, playerAddress, opponentAddress, initialBalanceUSD, walletBalance]);
+  }, [duelId, playerAddress, opponentAddress, initialBalanceUSD, walletBalance, usdcBalance]);
 
   // Track swaps made through our platform during this duel
   // Load swaps immediately on mount and persist them (they're stored in the service singleton)
@@ -209,16 +297,21 @@ export default function TradingView({
       },
     });
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#00ff41',
-      downColor: '#ff0080',
-      borderVisible: false,
-      wickUpColor: '#00ff41',
-      wickDownColor: '#ff0080',
+    const playerLineSeries = chart.addSeries(LineSeries, {
+      color: '#00ff41',
+      lineWidth: 2,
+      title: 'You',
+    });
+
+    const opponentLineSeries = chart.addSeries(LineSeries, {
+      color: '#ff0080',
+      lineWidth: 2,
+      title: 'Opponent',
     });
 
     chartRef.current = chart;
-    seriesRef.current = candlestickSeries;
+    playerLineRef.current = playerLineSeries;
+    opponentLineRef.current = opponentLineSeries;
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -236,136 +329,18 @@ export default function TradingView({
     };
   }, []);
 
-  // Chart updates based on actual trades within the duel
+  // Update P&L data on chart
   useEffect(() => {
-    if (!isGameActive || !seriesRef.current) return;
-
-    // Update chart when new trades are made
-    // Each trade represents a price point at which a swap occurred
-    const updateChartFromTrades = () => {
-      // Get all trades for this duel (already filtered by duelId and timestamp)
-      const trades = platformSwaps.filter(swap => 
-        swap.timestamp >= startTime && 
-        swap.timestamp <= (startTime + durationSecs)
-      );
-
-      if (trades.length === 0) {
-        // If no trades yet, show initial price
-        const initialPrice = getCurrentPrice('APT');
-        if (candleDataRef.current.length === 0) {
-          const initialCandle: CandlestickData = {
-            time: startTime,
-            open: initialPrice,
-            high: initialPrice,
-            low: initialPrice,
-            close: initialPrice,
-          };
-          candleDataRef.current.push(initialCandle);
-          seriesRef.current?.update(initialCandle);
-        }
-        return;
-      }
-
-      // Group trades by time window (e.g., every 10 seconds) to create candles
-      // Or show each trade as a point
-      const tradeMap = new Map<number, { price: number; trades: Swap[] }>();
-      
-      trades.forEach(trade => {
-        // Calculate price from trade: valueOutUSD / amountOut
-        // For APT trades: price = valueOutUSD / (amountOut in APT)
-        let tradePrice = 0;
-        if (trade.tokenOut.symbol === 'APT') {
-          const amountOutAPT = trade.amountOut / Math.pow(10, trade.tokenOut.decimals);
-          tradePrice = trade.valueOutUSD / amountOutAPT;
-        } else if (trade.tokenIn.symbol === 'APT') {
-          const amountInAPT = trade.amountIn / Math.pow(10, trade.tokenIn.decimals);
-          tradePrice = trade.valueInUSD / amountInAPT;
-        } else {
-          // Fallback to current price
-          tradePrice = getCurrentPrice('APT');
-        }
-
-        // Group by 10-second windows
-        const window = Math.floor(trade.timestamp / 10) * 10;
-        if (!tradeMap.has(window)) {
-          tradeMap.set(window, { price: tradePrice, trades: [] });
-        }
-        tradeMap.get(window)!.trades.push(trade);
-        // Update price to latest trade in window
-        tradeMap.get(window)!.price = tradePrice;
-      });
-
-      // Create candles from trade windows
-      const newCandles: CandlestickData[] = [];
-      Array.from(tradeMap.entries())
-        .sort(([a], [b]) => a - b)
-        .forEach(([windowTime, data]) => {
-          const prices = data.trades.map(t => {
-            if (t.tokenOut.symbol === 'APT') {
-              const amountOutAPT = t.amountOut / Math.pow(10, t.tokenOut.decimals);
-              return t.valueOutUSD / amountOutAPT;
-            } else if (t.tokenIn.symbol === 'APT') {
-              const amountInAPT = t.amountIn / Math.pow(10, t.tokenIn.decimals);
-              return t.valueInUSD / amountInAPT;
-            }
-            return getCurrentPrice('APT');
-          });
-          
-          const open = prices[0];
-          const close = prices[prices.length - 1];
-          const high = Math.max(...prices);
-          const low = Math.min(...prices);
-
-          newCandles.push({
-            time: windowTime,
-            open,
-            high,
-            low,
-            close,
-          });
-        });
-
-      // Update chart with new candles
-      if (newCandles.length > 0) {
-        candleDataRef.current = newCandles;
-        newCandles.forEach(candle => {
-          seriesRef.current?.update(candle);
-        });
-      }
-    };
-
-    // Update immediately and on trade changes
-    updateChartFromTrades();
+    if (!chartRef.current || !playerLineRef.current || !opponentLineRef.current) return;
     
-    // Also update periodically to show current price if no recent trades
-    const interval = setInterval(() => {
-      if (platformSwaps.length === 0) {
-        // Show current price if no trades
-        const currentPrice = getCurrentPrice('APT');
-        const now = Math.floor(Date.now() / 1000);
-        const lastCandle = candleDataRef.current[candleDataRef.current.length - 1];
-        
-        if (!lastCandle || lastCandle.time !== now) {
-          const candle: CandlestickData = {
-            time: now,
-            open: lastCandle?.close || currentPrice,
-            high: currentPrice,
-            low: currentPrice,
-            close: currentPrice,
-          };
-          candleDataRef.current.push(candle);
-          if (candleDataRef.current.length > 60) {
-            candleDataRef.current.shift();
-          }
-          seriesRef.current?.update(candle);
-        }
-      } else {
-        updateChartFromTrades();
-      }
-    }, 5000); // Update every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [isGameActive, platformSwaps, startTime, durationSecs]);
+    const playerData = pnlHistory.map(d => ({ time: d.time as Time, value: d.player }));
+    const opponentData = pnlHistory.map(d => ({ time: d.time as Time, value: d.opponent }));
+    
+    playerLineRef.current.setData(playerData);
+    opponentLineRef.current.setData(opponentData);
+    
+    chartRef.current.timeScale().fitContent();
+  }, [pnlHistory]);
 
   // Countdown timer and auto-report P&L
   useEffect(() => {
@@ -403,6 +378,25 @@ export default function TradingView({
 
     return () => clearInterval(timer);
   }, [isGameActive, hasReportedPnL, duelId, playerAddress, onDuelEnd, playerState, startTime, durationSecs]);
+
+  // Poll for resolution status after game ends
+  useEffect(() => {
+    if (isGameActive || duelWinner) return;
+
+    const checkResolution = async () => {
+      try {
+        const duel = await getDuel(duelId, true); // true = skip cache
+        if (duel && duel.isResolved && duel.winner) {
+          setDuelWinner(duel.winner);
+        }
+      } catch (error) {
+        console.error('Error checking resolution:', error);
+      }
+    };
+
+    const interval = setInterval(checkResolution, 2000);
+    return () => clearInterval(interval);
+  }, [isGameActive, duelWinner, duelId]);
 
   const handleSwap = async () => {
     console.log('[TradingView] handleSwap called', {
@@ -523,6 +517,17 @@ export default function TradingView({
       // Report swap to backend for leaderboard tracking
       await reportSwapExecuted(playerAddress, duelId);
       
+      // Record trade for duel P&L tracking
+      await recordDuelTrade(duelId, {
+        playerAddress,
+        tokenIn: tokenIn.symbol,
+        tokenOut: tokenOut.symbol,
+        amountIn: amount,
+        amountOut: swapResult.amountOut,
+        timestamp: Math.floor(Date.now() / 1000),
+        txHash: swapResult.transactionHash,
+      });
+      
       // Also update mock service for P&L tracking
       console.log('[TradingView] Updating mock service for P&L tracking...');
       await decibelSwapService.executeSwap(
@@ -530,7 +535,8 @@ export default function TradingView({
         playerAddress,
         tokenIn.symbol,
         tokenOut.symbol,
-        amountInBaseUnits
+        amountInBaseUnits,
+        swapResult.transactionHash
       );
       
       // Update states - this will refresh the balance display
@@ -580,7 +586,12 @@ export default function TradingView({
       return walletBalance;
     }
     
-    // For other tokens (zUSDC), use mock service balance from positions
+    // For zUSDC, use real wallet balance if available
+    if (token.symbol === 'zUSDC' && usdcBalance !== null) {
+      return usdcBalance;
+    }
+    
+    // Fallback to mock service balance (should align if all trades tracked)
     if (!playerState) {
       return 0;
     }
@@ -671,7 +682,11 @@ export default function TradingView({
 
       {/* Chart */}
       <div className="glass-card p-6 border border-cyberpunk-primary/20">
-        <div className="text-white/60 text-sm mb-2">APT/zUSDC Price</div>
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-white/60 text-sm">
+            P&L Performance (%)
+          </div>
+        </div>
         <div ref={chartContainerRef} className="w-full rounded-lg overflow-hidden" style={{ height: '400px' }} />
       </div>
 
@@ -840,10 +855,27 @@ export default function TradingView({
       {/* Game Status */}
       {!isGameActive && (
         <div className="glass-card p-6 border border-cyberpunk-primary/30 text-center">
-          {hasReportedPnL ? (
+          {duelWinner ? (
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-cyberpunk-primary">🎯 Duel Ended!</div>
-              <div className="text-white/60">P&L reported. Waiting for resolution...</div>
+              <div className="text-3xl font-bold text-cyberpunk-primary animate-bounce">
+                {duelWinner.toLowerCase() === playerAddress.toLowerCase() ? '🏆 YOU WON! 🏆' : '💀 YOU LOST 💀'}
+              </div>
+              <div className="text-white/80">
+                {duelWinner.toLowerCase() === playerAddress.toLowerCase() 
+                  ? `Congratulations! You've won the pot.` 
+                  : 'Better luck next time.'}
+              </div>
+              <div className="text-sm text-white/40 font-mono mt-2">
+                Winner: {formatAddress(duelWinner)}
+              </div>
+            </div>
+          ) : hasReportedPnL ? (
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-white">🏁 Duel Ended</div>
+              <div className="text-white/60 flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white/60"></div>
+                Waiting for referee resolution...
+              </div>
             </div>
           ) : (
             <div className="text-white/60">Reporting P&L...</div>

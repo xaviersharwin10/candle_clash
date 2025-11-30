@@ -240,12 +240,12 @@ export async function executeLiquidswapSwap(
   }
 
   // Calculate minimum amount out with dynamic slippage tolerance
-  // For small amounts (< 0.5 APT), use higher slippage (3-5%) due to:
+  // For small amounts (< 1.0 unit), use higher slippage due to:
   // - Higher impact of fees on small amounts
   // - More price impact on small pools
   // - Rounding errors are more significant
-  const isSmallAmount = amountIn < 0.5;
-  const slippagePercent = isSmallAmount ? 3.0 : 2.0; // 3% for small, 2% for larger
+  const isSmallAmount = amountIn < 1.0;
+  const slippagePercent = isSmallAmount ? 5.0 : 2.0; // 5% for small, 2% for larger
   
   let minAmountOut = calculateMinAmountOut(estimatedAmountOut, slippagePercent);
   console.log('[Liquidswap] Estimated amount out:', estimatedAmountOut);
@@ -257,8 +257,8 @@ export async function executeLiquidswapSwap(
   }
   
   // Additional safety buffer based on amount size
-  // For small amounts, use 5% buffer (0.95), for larger use 2% buffer (0.98)
-  const bufferMultiplier = isSmallAmount ? 0.95 : 0.98;
+  // For small amounts, use 10% buffer (0.90), for larger use 2% buffer (0.98)
+  const bufferMultiplier = isSmallAmount ? 0.90 : 0.98;
   const absoluteMin = Math.floor(estimatedAmountOut * bufferMultiplier);
   const finalMinAmountOut = Math.min(minAmountOut, absoluteMin);
   

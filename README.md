@@ -130,6 +130,23 @@
 - **Serviceable Obtainable Market (SOM)**: 1M users in first year = $500M+ market
 - **Monetization**: 1% protocol fee on all duel winnings scales with user base
 
+### 🌟 Photon Integration (Bonus Track)
+
+**We have fully integrated Photon for Identity, Engagement, and Rewards:**
+
+1.  **Unified Identity & Embedded Wallet**
+    -   **Implementation**: Auto-onboarding to Photon upon Google Sign-In.
+    -   **Impact**: Creates a Photon identity and embedded wallet for every user seamlessly.
+
+2.  **Rewarded Actions (Earn PAT)**
+    -   **Event**: `leaderboard_reward` / `game_win`
+    -   **Mechanism**: Top 10 daily traders can claim PAT tokens directly to their Photon wallet.
+    -   **Verification**: Fully working flow with transaction confirmation.
+
+3.  **Analytics & Attribution**
+    -   **Events Tracked**: `duel_created`, `duel_joined`, `duel_won`, `duel_lost`, `duel_watched`.
+    -   **Usage**: Tracks user engagement lifecycle to optimize retention.
+
 ### 🚧 **Future Enhancements** (Post-Hackathon)
 
 - Oracle integration for automated resolution

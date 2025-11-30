@@ -28,6 +28,7 @@ export interface Swap {
   valueInUSD: number; // amountIn * priceInUSD
   valueOutUSD: number; // amountOut * priceOutUSD
   pnlUSD: number; // valueOutUSD - valueInUSD (for this swap)
+  txHash?: string; // Transaction hash for de-duping
 }
 
 export interface SwapPosition {
@@ -197,7 +198,8 @@ export class DecibelSwapService {
     playerAddress: string,
     tokenInSymbol: string,
     tokenOutSymbol: string,
-    amountIn: number // Amount in tokenIn's base units
+    amountIn: number, // Amount in tokenIn's base units
+    txHash?: string // Optional transaction hash
   ): Promise<Swap> {
     const key = `${duelId}-${playerAddress}`;
     const state = this.playerStates.get(key);
@@ -250,6 +252,7 @@ export class DecibelSwapService {
       valueInUSD,
       valueOutUSD,
       pnlUSD,
+      txHash,
     };
 
     // Update positions

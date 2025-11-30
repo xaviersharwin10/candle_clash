@@ -31,6 +31,7 @@ export function isPetraInstalled(): boolean {
 
 /**
  * Connect to Petra wallet
+ * If already connected, this will allow switching accounts
  */
 export async function connectPetra(): Promise<{ address: string }> {
   if (!isPetraInstalled()) {
@@ -38,6 +39,22 @@ export async function connectPetra(): Promise<{ address: string }> {
   }
 
   try {
+    // Check if already connected
+    const isConnected = await window.aptos!.isConnected();
+    
+    // If connected, disconnect first to allow account switching
+    if (isConnected) {
+      try {
+        await window.aptos!.disconnect();
+        // Small delay to ensure disconnect completes
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (disconnectError) {
+        // Ignore disconnect errors, just proceed with connect
+        console.log('[connectPetra] Disconnect error (ignored):', disconnectError);
+      }
+    }
+    
+    // Connect (this will show account selection if multiple accounts)
     const result = await window.aptos!.connect();
     return result;
   } catch (error: any) {
@@ -45,6 +62,37 @@ export async function connectPetra(): Promise<{ address: string }> {
       throw new Error('User rejected the connection request');
     }
     throw new Error(`Failed to connect to Petra wallet: ${error.message}`);
+  }
+}
+
+/**
+ * Switch account in Petra wallet
+ * Disconnects and reconnects to allow account selection
+ */
+export async function switchPetraAccount(): Promise<{ address: string }> {
+  if (!isPetraInstalled()) {
+    throw new Error('Petra wallet is not installed. Please install it from https://petra.app/');
+  }
+
+  try {
+    // Always disconnect first to ensure fresh connection
+    try {
+      await window.aptos!.disconnect();
+      // Small delay to ensure disconnect completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (disconnectError) {
+      // Ignore disconnect errors
+      console.log('[switchPetraAccount] Disconnect error (ignored):', disconnectError);
+    }
+    
+    // Connect again - this will show account selection
+    const result = await window.aptos!.connect();
+    return result;
+  } catch (error: any) {
+    if (error.code === 4001) {
+      throw new Error('User rejected the connection request');
+    }
+    throw new Error(`Failed to switch account: ${error.message}`);
   }
 }
 

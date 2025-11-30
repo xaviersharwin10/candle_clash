@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isPetraInstalled, connectPetra, disconnectPetra, getPetraAccount } from '../lib/petraWallet';
+import { isPetraInstalled, connectPetra, disconnectPetra, getPetraAccount, switchPetraAccount } from '../lib/petraWallet';
 
 interface PetraWalletButtonProps {
   onConnect: (address: string) => void;
@@ -53,6 +53,28 @@ export default function PetraWalletButton({ onConnect, onDisconnect }: PetraWall
     }
   };
 
+  const handleSwitchAccount = async () => {
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      const result = await switchPetraAccount();
+      setAddress(result.address);
+      onConnect(result.address);
+      sessionStorage.setItem('petra_address', result.address);
+    } catch (err: any) {
+      if (err.message?.includes('rejected')) {
+        // User cancelled, just ignore
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to switch account');
+      }
+      console.error('Petra switch account error:', err);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     try {
       await disconnectPetra();
@@ -89,11 +111,29 @@ export default function PetraWalletButton({ onConnect, onDisconnect }: PetraWall
           {address.slice(0, 6)}...{address.slice(-4)}
         </div>
         <button
+          onClick={handleSwitchAccount}
+          disabled={isConnecting}
+          className="btn-primary w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Switch to a different account"
+        >
+          {isConnecting ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent"></div>
+              Switching...
+            </span>
+          ) : (
+            '🔄 Switch Account'
+          )}
+        </button>
+        <button
           onClick={handleDisconnect}
           className="btn-secondary w-full text-sm"
         >
           Disconnect
         </button>
+        {error && (
+          <p className="text-xs text-red-400 text-center">{error}</p>
+        )}
       </div>
     );
   }
