@@ -1,0 +1,12 @@
+[package]
+name = "duel_arena"
+version = "1.0.0"
+
+[addresses]
+duel_arena = "0xb60919b8f0256baa4e0368e40a98cb4bf713634d75c91ecccdca569bc39eedf0"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
