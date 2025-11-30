@@ -183,8 +183,11 @@ function App() {
           <nav className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/80 backdrop-blur-xl">
             <div className="w-full px-6 py-4 flex justify-between items-center">
               <div className="flex items-center gap-8">
-                <Link to="/" className="text-xl font-bold text-white hover:text-cyberpunk-primary transition-colors">
-                  Candle Clash
+                <Link to="/" className="flex items-center gap-3 group">
+                  <img src="/assets/logo.jpg" alt="Candle Clash" className="w-8 h-8 rounded-full border border-cyberpunk-primary/50 group-hover:border-cyberpunk-primary transition-colors" />
+                  <span className="text-xl font-bold text-white group-hover:text-cyberpunk-primary transition-colors">
+                    Candle Clash
+                  </span>
                 </Link>
                 <Link
                   to="/lobby"
@@ -268,7 +271,8 @@ function App() {
               ) : (
                 <div className="min-h-screen flex items-center justify-center p-8">
                   <div className="text-center space-y-10 max-w-4xl w-full animate-fade-in">
-                    <div className="space-y-4">
+                    <div className="flex flex-col items-center space-y-4">
+                      <img src="/assets/logo.jpg" alt="Candle Clash" className="w-24 h-24 rounded-full border-2 border-cyberpunk-primary shadow-lg shadow-cyberpunk-primary/20 mb-4 animate-float" />
                       <h1 className="text-6xl font-bold text-white mb-4">
                         Candle Clash
                       </h1>

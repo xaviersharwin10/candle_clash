@@ -518,7 +518,8 @@ export async function listOpenDuels(): Promise<OpenDuel[]> {
           // Get current duel state to check if it's still open
           const duel = await getDuel(duelId);
           
-          if (duel && !duel.isResolved && duel.player2 === '0x0') {
+          // Check if duel is truly open (no player 2)
+          if (duel && !duel.isResolved && (duel.player2 === '0x0' || duel.player2 === '0x0000000000000000000000000000000000000000000000000000000000000000')) {
             // Duel is open (player2 hasn't joined yet)
             openDuels.push({
               duelId,
@@ -565,7 +566,7 @@ export async function listOpenDuels(): Promise<OpenDuel[]> {
                     const duelId = Number(eventData.duel_id);
                     if (!isNaN(duelId)) {
                       const duel = await getDuel(duelId);
-                      if (duel && !duel.isResolved && duel.player2 === '0x0') {
+                      if (duel && !duel.isResolved && (duel.player2 === '0x0' || duel.player2 === '0x0000000000000000000000000000000000000000000000000000000000000000')) {
                         openDuels.push({
                           duelId,
                           player1: eventData.player_1 || duel.player1,
@@ -610,7 +611,7 @@ export async function listOpenDuels(): Promise<OpenDuel[]> {
             (async () => {
               try {
                 const duel = await getDuel(duelId);
-                if (duel && !duel.isResolved && duel.player2 === '0x0') {
+                if (duel && !duel.isResolved && (duel.player2 === '0x0' || duel.player2 === '0x0000000000000000000000000000000000000000000000000000000000000000')) {
                   openDuels.push({
                     duelId,
                     player1: duel.player1,

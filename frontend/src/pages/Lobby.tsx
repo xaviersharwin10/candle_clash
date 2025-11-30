@@ -137,11 +137,14 @@ export default function Lobby({ account, userAddress }: LobbyProps) {
         {/* Header */}
         <div className="glass-card p-8">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                Candle Clash
-              </h1>
-              <p className="text-white/60">1v1 Trading Battle Arena</p>
+            <div className="flex items-center gap-6">
+              <img src="/assets/logo.jpg" alt="Candle Clash" className="w-16 h-16 rounded-full border border-cyberpunk-primary/50" />
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">
+                  Candle Clash
+                </h1>
+                <p className="text-white/60">1v1 Trading Battle Arena</p>
+              </div>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
